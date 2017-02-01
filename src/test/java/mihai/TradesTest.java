@@ -23,15 +23,22 @@ import scala.concurrent.duration.FiniteDuration;
 
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.Assert.assertEquals;
+
+import org.concordion.integration.junit4.ConcordionRunner;
+import org.junit.runner.RunWith;
 
 /**
  * Created by mcojocariu on 1/31/2017.
  */
+
+@RunWith(ConcordionRunner.class)
 public class TradesTest {
     static ActorSystem system;
-    LoggingAdapter log = Logging.getLogger(system, this);
+   // LoggingAdapter log = Logging.getLogger(system, this);
 
     @BeforeClass
     public static void setup() {
@@ -44,28 +51,39 @@ public class TradesTest {
         system.awaitTermination(Duration.create("10 seconds"));
     }
 
-    @Test
-    public void canAddATrade() {
+
+    public Integer canAddATrade() {
+        CompletableFuture<Integer> canAddATrade = new CompletableFuture<Integer>();
         new JavaTestKit(system) {{
             final TestActorRef<SupervisorActor> supervisor = TestActorRef.create(system, Props.create(SupervisorActor.class), "supervisor1");
 
             final Trade trade = Trade.aTrade();
             supervisor.tell(new NewTradeMessage(trade), getTestActor());
-            final Trade trade1 = Trade.aTrade();
-            supervisor.tell(new NewTradeMessage(trade1), getTestActor());
+            //final Trade trade1 = Trade.aTrade();
+            //supervisor.tell(new NewTradeMessage(trade1), getTestActor());
 
             supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_TRADES), getTestActor());
 
             final TradesResponseMessage response = expectMsgClass(TradesResponseMessage.class);
 
-            assertEquals(true, response.getTrades().contains(trade));
-            assertEquals(true, response.getTrades().contains(trade1));
-            assertEquals(2, response.getTrades().size());
+            //assertEquals(true, response.getTrades().contains(trade));
+            //assertEquals(true, response.getTrades().contains(trade1));
+            //assertEquals(2, response.getTrades().size());
+            canAddATrade.complete(response.getTrades().size());
         }};
+
+        try {
+            return canAddATrade.get();
+        } catch (InterruptedException e) {
+            return -1;
+        } catch (ExecutionException e) {
+            return -1;
+        }
     }
 
-    @Test
-    public void canAddACcpTrade() {
+
+    public Integer canAddACcpTrade() {
+        CompletableFuture<Integer> canAddACcpTrade = new CompletableFuture<Integer>();
         new JavaTestKit(system) {{
             final TestActorRef<SupervisorActor> supervisor = TestActorRef.create(system, Props.create(SupervisorActor.class), "supervisor2");
 
@@ -77,7 +95,18 @@ public class TradesTest {
 
             assertEquals(ccpTrade, response.getCcpTrades().get(0));
             assertEquals(1, response.getCcpTrades().size());
+            //assertEquals(ccpTrade, ccpTrades.getCcpTrades().get(0));
+            //assertEquals(1, ccpTrades.getCcpTrades().size());
+            canAddACcpTrade.complete(response.getCcpTrades().size());
         }};
+
+        try {
+            return canAddACcpTrade.get();
+        } catch (InterruptedException e) {
+            return -1;
+        } catch (ExecutionException e) {
+            return -1;
+        }
     }
 
     @Test
@@ -96,7 +125,7 @@ public class TradesTest {
 
                 Long endTimestamp = System.currentTimeMillis();
                 Long diff = endTimestamp - startTimestamp;
-                log.debug("Trades matching duration (ms): " + diff);
+               // log.debug("Trades matching duration (ms): " + diff);
             }
         };
     }
@@ -121,6 +150,6 @@ public class TradesTest {
 
         Long endTimestamp = System.currentTimeMillis();
         Long diff = endTimestamp - startTimestamp;
-        log.debug("Trades loading duration (ms): " + diff);
+        //log.debug("Trades loading duration (ms): " + diff);
     }
 }
