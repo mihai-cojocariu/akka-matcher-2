@@ -20,7 +20,6 @@ public class CcpTrade implements Serializable {
         for (int i=0;i<20;i++){
             someData.add(RandomStringUtils.randomAlphabetic(10));
         }
-
     }
 
     public String getExchangeReference() {

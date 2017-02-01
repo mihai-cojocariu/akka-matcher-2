@@ -1,6 +1,7 @@
 package mihai.utils;
 
 import akka.actor.ActorRef;
+import mihai.dto.CcpTrade;
 import mihai.dto.Trade;
 
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ public class RequestInfo {
     private ActorRef sender;
     private int nbOfAnswers;
     List<Trade> tradesList = new ArrayList<>();
+    List<CcpTrade> ccpTradesList = new ArrayList<>();
 
     public RequestInfo(ActorRef sender, int nbOfAnswers) {
         this.sender = sender;
@@ -29,6 +31,10 @@ public class RequestInfo {
 
     public List<Trade> getTradesList() {
         return tradesList;
+    }
+
+    public List<CcpTrade> getCcpTradesList() {
+        return ccpTradesList;
     }
 
     public void setNbOfAnswers(int nbOfAnswers) {

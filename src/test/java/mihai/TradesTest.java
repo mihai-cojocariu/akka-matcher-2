@@ -1,5 +1,6 @@
 package mihai;
 
+import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.event.Logging;
@@ -9,18 +10,19 @@ import akka.testkit.TestActorRef;
 import mihai.actors.SupervisorActor;
 import mihai.dto.CcpTrade;
 import mihai.dto.Trade;
-import mihai.messages.CcpTradesMessage;
-import mihai.messages.GetCcpTradesMessage;
-import mihai.messages.GetTradesMessage;
 import mihai.messages.NewCcpTradeMessage;
 import mihai.messages.NewTradeMessage;
-import mihai.messages.TradesMessage;
+import mihai.messages.TradesRequest;
+import mihai.messages.TradesResponseMessage;
+import mihai.utils.RequestType;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import scala.concurrent.duration.Duration;
+import scala.concurrent.duration.FiniteDuration;
 
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 
@@ -52,13 +54,13 @@ public class TradesTest {
             final Trade trade1 = Trade.aTrade();
             supervisor.tell(new NewTradeMessage(trade1), getTestActor());
 
-            supervisor.tell(new GetTradesMessage(UUID.randomUUID().toString()), getTestActor());
+            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_TRADES), getTestActor());
 
-            final TradesMessage tradesMessage = expectMsgClass(TradesMessage.class);
+            final TradesResponseMessage response = expectMsgClass(TradesResponseMessage.class);
 
-            assertEquals(true, tradesMessage.getTrades().contains(trade));
-            assertEquals(true, tradesMessage.getTrades().contains(trade1));
-            assertEquals(2, tradesMessage.getTrades().size());
+            assertEquals(true, response.getTrades().contains(trade));
+            assertEquals(true, response.getTrades().contains(trade1));
+            assertEquals(2, response.getTrades().size());
         }};
     }
 
@@ -69,12 +71,56 @@ public class TradesTest {
 
             final CcpTrade ccpTrade = CcpTrade.aCcpTrade();
             supervisor.tell(new NewCcpTradeMessage(ccpTrade), getTestActor());
-            supervisor.tell(new GetCcpTradesMessage(UUID.randomUUID().toString()), getTestActor());
+            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_CCP_TRADES), getTestActor());
 
-            final CcpTradesMessage ccpTrades = expectMsgClass(CcpTradesMessage.class);
+            final TradesResponseMessage response = expectMsgClass(TradesResponseMessage.class);
 
-            assertEquals(ccpTrade, ccpTrades.getCcpTrades().get(0));
-            assertEquals(1, ccpTrades.getCcpTrades().size());
+            assertEquals(ccpTrade, response.getCcpTrades().get(0));
+            assertEquals(1, response.getCcpTrades().size());
         }};
+    }
+
+    @Test
+    public void volumeTestActors() {
+        new JavaTestKit(system) {
+            {
+                final int numberOfTrades = 500000;
+                final TestActorRef<SupervisorActor> supervisor = TestActorRef.create(system, Props.create(SupervisorActor.class), "supervisor3");
+                loadTrades(supervisor, getTestActor(), numberOfTrades);
+
+                Long startTimestamp = System.currentTimeMillis();
+
+
+                supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_UNMATCHED_TRADES), getTestActor());
+                TradesResponseMessage response = expectMsgClass(new FiniteDuration(20, TimeUnit.SECONDS), TradesResponseMessage.class);
+
+                Long endTimestamp = System.currentTimeMillis();
+                Long diff = endTimestamp - startTimestamp;
+                log.debug("Trades matching duration (ms): " + diff);
+            }
+        };
+    }
+
+    private void loadTrades(ActorRef supervisor, ActorRef testActor, Integer numberOfTrades) {
+        Long startTimestamp = System.currentTimeMillis();
+
+        Integer tradeExchangeReference = 0;
+        Integer ccpTradeExchangeReference = 0;
+
+        for(int i=1; i<=numberOfTrades; i++) {
+            tradeExchangeReference += 2;
+            Trade trade = new Trade(tradeExchangeReference.toString());
+            NewTradeMessage newTradeMessage = new NewTradeMessage(trade);
+            supervisor.tell(newTradeMessage, testActor);
+
+            ccpTradeExchangeReference += 3;
+            CcpTrade ccpTrade = new CcpTrade(ccpTradeExchangeReference.toString());
+            NewCcpTradeMessage newCcpTradeMessage = new NewCcpTradeMessage(ccpTrade);
+            supervisor.tell(newCcpTradeMessage, testActor);
+        }
+
+        Long endTimestamp = System.currentTimeMillis();
+        Long diff = endTimestamp - startTimestamp;
+        log.debug("Trades loading duration (ms): " + diff);
     }
 }

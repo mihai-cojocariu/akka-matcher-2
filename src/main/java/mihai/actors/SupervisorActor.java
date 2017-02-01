@@ -3,17 +3,18 @@ package mihai.actors;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
 import akka.routing.ActorRefRoutee;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Routee;
 import akka.routing.Router;
-import mihai.dto.Trade;
-import mihai.messages.GetCcpTradesMessage;
-import mihai.messages.GetTradesMessage;
 import mihai.messages.NewCcpTradeMessage;
 import mihai.messages.NewTradeMessage;
-import mihai.messages.TradesMessage;
+import mihai.messages.TradesRequest;
+import mihai.messages.TradesResponseMessage;
 import mihai.utils.RequestInfo;
+import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ import java.util.Map;
  * Created by mcojocariu on 1/31/2017.
  */
 public class SupervisorActor extends UntypedActor {
+    LoggingAdapter log = Logging.getLogger(getContext().system(), this);
     private Router router;
     private int nbOfChildren = 0;
     private Map<String, RequestInfo> requestsMap = new HashMap<>();
@@ -35,19 +37,17 @@ public class SupervisorActor extends UntypedActor {
             performNewTrade((NewTradeMessage) message);
         } else if (message instanceof NewCcpTradeMessage) {
             performNewCcpTrade((NewCcpTradeMessage) message);
-        } else if (message instanceof GetTradesMessage) {
-            performGetTrades((GetTradesMessage) message);
-        } else if (message instanceof GetCcpTradesMessage) {
-            performGetCcpTrades((GetCcpTradesMessage) message);
-        } else if (message instanceof TradesMessage) {
-            performCollateTrades((TradesMessage) message);
+        } else if (message instanceof TradesRequest) {
+            performGetTrades((TradesRequest) message);
+        } else if (message instanceof TradesResponseMessage) {
+            performCollateResponses((TradesResponseMessage) message);
         } else {
             unhandled(message);
         }
     }
 
-    public void performCollateTrades(TradesMessage tradesMessage) {
-        String requestId = tradesMessage.getRequestId();
+    private void performCollateResponses(TradesResponseMessage tradesResponseMessage) {
+        String requestId = tradesResponseMessage.getRequestId();
         RequestInfo requestInfo = requestsMap.get(requestId);
         if (requestInfo == null) {
             throw new RuntimeException("Message received from child actor for an inexisting request");
@@ -56,27 +56,35 @@ public class SupervisorActor extends UntypedActor {
         int nbOfAnswers = requestInfo.getNbOfAnswers();
         nbOfAnswers--;
 
-        requestInfo.setNbOfAnswers(nbOfAnswers);
-        requestInfo.getTradesList().addAll(tradesMessage.getTrades());
+        updateRequestInfo(requestInfo, nbOfAnswers, tradesResponseMessage);
 
         if (nbOfAnswers == 0) {
-            requestInfo.getSender().tell(new TradesMessage(requestId, requestInfo.getTradesList()), getSelf());
+            log.debug("We have {} unmatched trades and {} unmatched CCP trades", requestInfo.getTradesList().size(), requestInfo.getCcpTradesList().size() );
+            log.debug("Memory {}", Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
+
+            TradesResponseMessage response = new TradesResponseMessage(requestId, requestInfo.getTradesList(), requestInfo.getCcpTradesList());
+            requestInfo.getSender().tell(response, getSelf());
             requestsMap.remove(requestId);
         } else {
             requestsMap.put(requestId, requestInfo);
         }
     }
 
-    private void performGetCcpTrades(GetCcpTradesMessage getCcpTradesMessage) {
-
+    private void updateRequestInfo(RequestInfo requestInfo, int nbOfAnswers, TradesResponseMessage tradesResponseMessage) {
+        requestInfo.setNbOfAnswers(nbOfAnswers);
+        if (CollectionUtils.isNotEmpty(tradesResponseMessage.getTrades())) {
+            requestInfo.getTradesList().addAll(tradesResponseMessage.getTrades());
+        }
+        if (CollectionUtils.isNotEmpty(tradesResponseMessage.getCcpTrades())) {
+            requestInfo.getCcpTradesList().addAll(tradesResponseMessage.getCcpTrades());
+        }
     }
 
-    private void performGetTrades(GetTradesMessage getTradesMessage) {
-        String requestId = getTradesMessage.getRequestId();
+    private void performGetTrades(TradesRequest tradesRequest) {
+        String requestId = tradesRequest.getRequestId();
         requestsMap.put(requestId, new RequestInfo(getSender(), nbOfChildren));
-
         router = getBroadcastRouter();
-        router.route(getTradesMessage, getSelf());
+        router.route(tradesRequest, getSelf());
     }
 
     private Router getBroadcastRouter() {
