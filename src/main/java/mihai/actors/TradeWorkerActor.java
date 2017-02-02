@@ -3,10 +3,13 @@ package mihai.actors;
 import akka.actor.UntypedActor;
 import mihai.dto.CcpTrade;
 import mihai.dto.Trade;
+import mihai.messages.CancelCcpTradeMessage;
+import mihai.messages.CancelTradeMessage;
 import mihai.messages.NewCcpTradeMessage;
 import mihai.messages.NewTradeMessage;
 import mihai.messages.TradesRequest;
 import mihai.messages.TradesResponseMessage;
+import mihai.utils.RequestType;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,13 +27,13 @@ public class TradeWorkerActor extends UntypedActor {
     @Override
     public void onReceive(Object message) throws Throwable {
         if (message instanceof NewTradeMessage) {
-            NewTradeMessage newTradeMessage = (NewTradeMessage) message;
-            Trade trade = newTradeMessage.getTrade();
-            tradeMap.put(trade.getExchangeReference(), trade);
+            performNewTrade((NewTradeMessage) message);
         } else if (message instanceof NewCcpTradeMessage) {
-            NewCcpTradeMessage newCcpTradeMessage = (NewCcpTradeMessage) message;
-            CcpTrade ccpTrade = newCcpTradeMessage.getCcpTrade();
-            ccpTradeMap.put(ccpTrade.getExchangeReference(), ccpTrade);
+            performNewCcpTrade((NewCcpTradeMessage) message);
+        } else if (message instanceof CancelTradeMessage) {
+            performCancelTrade((CancelTradeMessage) message);
+        } else if (message instanceof CancelCcpTradeMessage) {
+            performCancelCcpTrade((CancelCcpTradeMessage) message);
         } else if (message instanceof TradesRequest) {
             performTradesRequest((TradesRequest) message);
         } else {
@@ -38,21 +41,31 @@ public class TradeWorkerActor extends UntypedActor {
         }
     }
 
-    public void performTradesRequest(TradesRequest tradesRequest) {
+    private void performCancelCcpTrade(CancelCcpTradeMessage cancelCcpTradeMessage) {
+        CcpTrade ccpTrade = cancelCcpTradeMessage.getCcpTrade();
+        ccpTradeMap.remove(ccpTrade.getExchangeReference());
+    }
+
+    private void performCancelTrade(CancelTradeMessage cancelTradeMessage) {
+        Trade trade = cancelTradeMessage.getTrade();
+        tradeMap.remove(trade.getExchangeReference());
+    }
+
+    private void performTradesRequest(TradesRequest tradesRequest) {
         String requestId = tradesRequest.getRequestId();
 
         TradesResponseMessage response = null;
         switch (tradesRequest.getRequestType()) {
-            case GET_TRADES:
+            case GET_CS_TRADES:
                 List<Trade> trades = new ArrayList<>(tradeMap.values());
-                response = new TradesResponseMessage(requestId, trades, Collections.emptyList());
+                response = new TradesResponseMessage(requestId, tradesRequest.getRequestType(), trades, Collections.emptyList());
                 break;
             case GET_CCP_TRADES:
                 List<CcpTrade> ccpTrades = new ArrayList<>(ccpTradeMap.values());
-                response = new TradesResponseMessage(requestId, Collections.emptyList(), ccpTrades);
+                response = new TradesResponseMessage(requestId, tradesRequest.getRequestType(), Collections.emptyList(), ccpTrades);
                 break;
             case GET_UNMATCHED_TRADES:
-                response = getUnmatchedTradesResponse(requestId);
+                response = getUnmatchedTradesResponse(requestId, tradesRequest.getRequestType());
                 break;
         }
 
@@ -61,7 +74,7 @@ public class TradeWorkerActor extends UntypedActor {
         }
     }
 
-    private TradesResponseMessage getUnmatchedTradesResponse(String requestId) {
+    private TradesResponseMessage getUnmatchedTradesResponse(String requestId, RequestType requestType) {
         List<Trade> unmatchedTrades = new ArrayList<>();
         List<CcpTrade> unmatchedCcpTrades = new ArrayList<>();
 
@@ -79,7 +92,16 @@ public class TradeWorkerActor extends UntypedActor {
             }
         }
 
-        return new TradesResponseMessage(requestId, unmatchedTrades, unmatchedCcpTrades);
+        return new TradesResponseMessage(requestId, requestType, unmatchedTrades, unmatchedCcpTrades);
     }
 
+    private void performNewTrade(NewTradeMessage newTradeMessage) {
+        Trade trade = newTradeMessage.getTrade();
+        tradeMap.put(trade.getExchangeReference(), trade);
+    }
+
+    private void performNewCcpTrade(NewCcpTradeMessage newCcpTradeMessage) {
+        CcpTrade ccpTrade = newCcpTradeMessage.getCcpTrade();
+        ccpTradeMap.put(ccpTrade.getExchangeReference(), ccpTrade);
+    }
 }

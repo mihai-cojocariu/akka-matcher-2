@@ -9,6 +9,8 @@ import akka.routing.ActorRefRoutee;
 import akka.routing.BroadcastRoutingLogic;
 import akka.routing.Routee;
 import akka.routing.Router;
+import mihai.messages.CancelCcpTradeMessage;
+import mihai.messages.CancelTradeMessage;
 import mihai.messages.NewCcpTradeMessage;
 import mihai.messages.NewTradeMessage;
 import mihai.messages.TradesRequest;
@@ -37,6 +39,10 @@ public class SupervisorActor extends UntypedActor {
             performNewTrade((NewTradeMessage) message);
         } else if (message instanceof NewCcpTradeMessage) {
             performNewCcpTrade((NewCcpTradeMessage) message);
+        } else if (message instanceof CancelTradeMessage) {
+            performCancelTrade((CancelTradeMessage) message);
+        } else if (message instanceof CancelCcpTradeMessage) {
+            performCancelCcpTrade((CancelCcpTradeMessage) message);
         } else if (message instanceof TradesRequest) {
             performGetTrades((TradesRequest) message);
         } else if (message instanceof TradesResponseMessage) {
@@ -44,6 +50,16 @@ public class SupervisorActor extends UntypedActor {
         } else {
             unhandled(message);
         }
+    }
+
+    private void performCancelCcpTrade(CancelCcpTradeMessage cancelCcpTradeMessage) {
+        ActorRef actor = getChildActor(cancelCcpTradeMessage.getCcpTrade().getExchangeReference());
+        actor.tell(cancelCcpTradeMessage, getSelf());
+    }
+
+    private void performCancelTrade(CancelTradeMessage cancelTradeMessage) {
+        ActorRef actor = getChildActor(cancelTradeMessage.getTrade().getExchangeReference());
+        actor.tell(cancelTradeMessage, getSelf());
     }
 
     private void performCollateResponses(TradesResponseMessage tradesResponseMessage) {
@@ -59,10 +75,19 @@ public class SupervisorActor extends UntypedActor {
         updateRequestInfo(requestInfo, nbOfAnswers, tradesResponseMessage);
 
         if (nbOfAnswers == 0) {
-            log.debug("We have {} unmatched trades and {} unmatched CCP trades", requestInfo.getTradesList().size(), requestInfo.getCcpTradesList().size() );
-            log.debug("Memory {}", Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
+            switch (tradesResponseMessage.getRequestType()) {
+                case GET_CS_TRADES:
+                    log.debug("We have {}", nbOfEntities(requestInfo.getTradesList().size(), "CS trade"));
+                    break;
+                case GET_CCP_TRADES:
+                    log.debug("We have {}", nbOfEntities(requestInfo.getCcpTradesList().size(), "CCP trade"));
+                    break;
+                case GET_UNMATCHED_TRADES:
+                    log.debug("We have {} and {}", nbOfEntities(requestInfo.getTradesList().size(), "unmatched CS trade"), nbOfEntities(requestInfo.getCcpTradesList().size(), "unmatched CCP trade"));
+                    break;
+            }
 
-            TradesResponseMessage response = new TradesResponseMessage(requestId, requestInfo.getTradesList(), requestInfo.getCcpTradesList());
+            TradesResponseMessage response = new TradesResponseMessage(requestId, tradesResponseMessage.getRequestType(), requestInfo.getTradesList(), requestInfo.getCcpTradesList());
             requestInfo.getSender().tell(response, getSelf());
             requestsMap.remove(requestId);
         } else {
@@ -120,5 +145,9 @@ public class SupervisorActor extends UntypedActor {
 
     private String getChildActorName(String exchangeReference) {
         return "TradeWorkerActor_" + String.valueOf(exchangeReference.charAt(0)).toUpperCase();
+    }
+
+    private String nbOfEntities(int number, String entityName) {
+        return 1 + " " + entityName + (number != 1 ? "s" : "");
     }
 }

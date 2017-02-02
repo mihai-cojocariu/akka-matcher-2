@@ -1,6 +1,5 @@
 package mihai;
 
-import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.testkit.JavaTestKit;
@@ -13,6 +12,7 @@ import mihai.messages.NewTradeMessage;
 import mihai.messages.TradesRequest;
 import mihai.messages.TradesResponseMessage;
 import mihai.utils.RequestType;
+import mihai.utils.Utils;
 import org.concordion.integration.junit4.ConcordionRunner;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -59,7 +59,7 @@ public class ConcordionTradesTest {
             //final Trade trade1 = Trade.aTrade();
             //supervisor.tell(new NewTradeMessage(trade1), getTestActor());
 
-            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_TRADES), getTestActor());
+            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_CS_TRADES), getTestActor());
 
             final TradesResponseMessage response = expectMsgClass(TradesResponseMessage.class);
 
@@ -112,7 +112,7 @@ public class ConcordionTradesTest {
             {
                 final int numberOfTrades = 500000;
                 final TestActorRef<SupervisorActor> supervisor = TestActorRef.create(system, Props.create(SupervisorActor.class), "supervisor3");
-                loadTrades(supervisor, getTestActor(), numberOfTrades);
+                Utils.loadTrades(supervisor, getTestActor(), numberOfTrades);
 
                 Long startTimestamp = System.currentTimeMillis();
 
@@ -125,28 +125,5 @@ public class ConcordionTradesTest {
                // log.debug("Trades matching duration (ms): " + diff);
             }
         };
-    }
-
-    private void loadTrades(ActorRef supervisor, ActorRef testActor, Integer numberOfTrades) {
-        Long startTimestamp = System.currentTimeMillis();
-
-        Integer tradeExchangeReference = 0;
-        Integer ccpTradeExchangeReference = 0;
-
-        for(int i=1; i<=numberOfTrades; i++) {
-            tradeExchangeReference += 2;
-            Trade trade = new Trade(tradeExchangeReference.toString());
-            NewTradeMessage newTradeMessage = new NewTradeMessage(trade);
-            supervisor.tell(newTradeMessage, testActor);
-
-            ccpTradeExchangeReference += 3;
-            CcpTrade ccpTrade = new CcpTrade(ccpTradeExchangeReference.toString());
-            NewCcpTradeMessage newCcpTradeMessage = new NewCcpTradeMessage(ccpTrade);
-            supervisor.tell(newCcpTradeMessage, testActor);
-        }
-
-        Long endTimestamp = System.currentTimeMillis();
-        Long diff = endTimestamp - startTimestamp;
-        //log.debug("Trades loading duration (ms): " + diff);
     }
 }
