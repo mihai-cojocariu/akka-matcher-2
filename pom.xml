@@ -1,6 +1,17 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
+	<repositories>
+		<repository>
+			<id>my-repo1</id>
+			<name>my custom repo</name>
+			<url>http://oss.jfrog.org/oss-snapshot-local</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+	</repositories>
 
 	<groupId>mihai</groupId>
 	<artifactId>akka-matcher-2</artifactId>
@@ -12,10 +23,9 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<concordion.version>2.0.0</concordion.version>
+		<concordion.version>2.0.3</concordion.version>
+		<excel-extension.version>1.0.1</excel-extension.version>
 	</properties>
-
-
 	<dependencies>
 		<dependency>
 			<groupId>org.concordion</groupId>
@@ -23,7 +33,28 @@
 			<version>${concordion.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
+        <dependency>
+            <groupId>org.concordion</groupId>
+            <artifactId>concordion-logback-extension</artifactId>
+            <version>2.0.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.concordion</groupId>
+            <artifactId>concordion-logging-tooltip-extension</artifactId>
+            <version>1.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.concordion</groupId>
+            <artifactId>concordion-timing-extension</artifactId>
+            <version>0.2.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.concordion</groupId>
+            <artifactId>concordion-logback-extension</artifactId>
+            <classifier>reportlogger</classifier>
+            <version>2.0.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>4.12</version>
@@ -53,7 +84,7 @@
 	</dependencies>
 
 	<build>
-		<plugins>
+        <plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>

@@ -1,5 +1,8 @@
 package mihai;
 
+/**
+ * Created by mcojocariu on 1/31/2017.
+ */
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.testkit.JavaTestKit;
@@ -12,31 +15,51 @@ import mihai.messages.NewTradeMessage;
 import mihai.messages.TradesRequest;
 import mihai.messages.TradesResponseMessage;
 import mihai.utils.RequestType;
+import org.concordion.api.FailFast;
+import org.concordion.api.extension.Extension;
+import org.concordion.api.extension.Extensions;
+import org.concordion.ext.LoggingTooltipExtension;
+import org.concordion.ext.timing.TimerExtension;
 import mihai.utils.Utils;
 import org.concordion.integration.junit4.ConcordionRunner;
+import org.concordion.logback.LogbackAdaptor;
+import org.concordion.slf4j.ext.ReportLogger;
+import org.concordion.slf4j.ext.ReportLoggerFactory;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.concurrent.duration.Duration;
-import scala.concurrent.duration.FiniteDuration;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.assertEquals;
-
-/**
- * Created by mcojocariu on 1/31/2017.
- */
 
 @RunWith(ConcordionRunner.class)
+@Extensions(value = TimerExtension.class)
+@FailFast
 public class ConcordionTradesTest {
     static ActorSystem system;
-   // LoggingAdapter log = Logging.getLogger(system, this);
+    private final ReportLogger logger = ReportLoggerFactory.getReportLogger(this.getClass().getName());
+    private final Logger tooltipLogger = LoggerFactory.getLogger("TOOLTIP_" + this.getClass().getName());
 
+    public ConcordionTradesTest() {
+
+    }
+
+    static {
+        LogbackAdaptor.logInternalStatus();
+    }
+
+    public ReportLogger getLogger() {
+        return logger;
+    }
+
+    public void addConcordionTooltip(final String message) {
+        // Logging at debug level means the message won't make it to the console, but will make it to the logs (based on included logback configuration files)
+        tooltipLogger.debug(message);
+    }
     @BeforeClass
     public static void setup() {
         system = ActorSystem.create();
@@ -50,7 +73,7 @@ public class ConcordionTradesTest {
 
 
     public Integer canAddATrade() {
-        CompletableFuture<Integer> canAddATrade = new CompletableFuture<Integer>();
+        CompletableFuture<Integer> canAddATrade = new CompletableFuture<>();
         new JavaTestKit(system) {{
             final TestActorRef<SupervisorActor> supervisor = TestActorRef.create(system, Props.create(SupervisorActor.class), "supervisor1");
 
@@ -67,6 +90,8 @@ public class ConcordionTradesTest {
             //assertEquals(true, response.getTrades().contains(trade1));
             //assertEquals(2, response.getTrades().size());
             canAddATrade.complete(response.getTrades().size());
+            logger.info("Add a Trade {} on thread {}", this.getClass().getSimpleName(), Thread.currentThread().getName());
+
         }};
 
         try {
@@ -80,7 +105,7 @@ public class ConcordionTradesTest {
 
 
     public Integer canAddACcpTrade() {
-        CompletableFuture<Integer> canAddACcpTrade = new CompletableFuture<Integer>();
+        CompletableFuture<Integer> canAddACcpTrade = new CompletableFuture<>();
         new JavaTestKit(system) {{
             final TestActorRef<SupervisorActor> supervisor = TestActorRef.create(system, Props.create(SupervisorActor.class), "supervisor2");
 
@@ -90,11 +115,12 @@ public class ConcordionTradesTest {
 
             final TradesResponseMessage response = expectMsgClass(TradesResponseMessage.class);
 
-            assertEquals(ccpTrade, response.getCcpTrades().get(0));
-            assertEquals(1, response.getCcpTrades().size());
+            //assertEquals(ccpTrade, response.getCcpTrades().get(0));
+            //assertEquals(1, response.getCcpTrades().size());
             //assertEquals(ccpTrade, ccpTrades.getCcpTrades().get(0));
             //assertEquals(1, ccpTrades.getCcpTrades().size());
             canAddACcpTrade.complete(response.getCcpTrades().size());
+            logger.info("Add a Ccp Trade {} on thread {}", this.getClass().getSimpleName(), Thread.currentThread().getName());
         }};
 
         try {
@@ -104,26 +130,5 @@ public class ConcordionTradesTest {
         } catch (ExecutionException e) {
             return -1;
         }
-    }
-
-    @Test
-    public void volumeTestActors() {
-        new JavaTestKit(system) {
-            {
-                final int numberOfTrades = 500000;
-                final TestActorRef<SupervisorActor> supervisor = TestActorRef.create(system, Props.create(SupervisorActor.class), "supervisor3");
-                Utils.loadTrades(supervisor, getTestActor(), numberOfTrades);
-
-                Long startTimestamp = System.currentTimeMillis();
-
-
-                supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_UNMATCHED_TRADES), getTestActor());
-                TradesResponseMessage response = expectMsgClass(new FiniteDuration(20, TimeUnit.SECONDS), TradesResponseMessage.class);
-
-                Long endTimestamp = System.currentTimeMillis();
-                Long diff = endTimestamp - startTimestamp;
-               // log.debug("Trades matching duration (ms): " + diff);
-            }
-        };
     }
 }
