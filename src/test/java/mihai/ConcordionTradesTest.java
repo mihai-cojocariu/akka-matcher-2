@@ -59,7 +59,7 @@ public class ConcordionTradesTest {
             //final Trade trade1 = Trade.aTrade();
             //supervisor.tell(new NewTradeMessage(trade1), getTestActor());
 
-            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_CS_TRADES), getTestActor());
+            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_TRADES), getTestActor());
 
             final TradesResponseMessage response = expectMsgClass(TradesResponseMessage.class);
 

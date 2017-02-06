@@ -56,7 +56,7 @@ public class TradeWorkerActor extends UntypedActor {
 
         TradesResponseMessage response = null;
         switch (tradesRequest.getRequestType()) {
-            case GET_CS_TRADES:
+            case GET_TRADES:
                 List<Trade> trades = new ArrayList<>(tradeMap.values());
                 response = new TradesResponseMessage(requestId, tradesRequest.getRequestType(), trades, Collections.emptyList());
                 break;

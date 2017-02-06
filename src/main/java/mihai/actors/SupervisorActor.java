@@ -76,7 +76,7 @@ public class SupervisorActor extends UntypedActor {
 
         if (nbOfAnswers == 0) {
             switch (tradesResponseMessage.getRequestType()) {
-                case GET_CS_TRADES:
+                case GET_TRADES:
                     log.debug("We have {}", nbOfEntities(requestInfo.getTradesList().size(), "CS trade"));
                     break;
                 case GET_CCP_TRADES:

@@ -56,7 +56,7 @@ public class TradesTest {
 
             final Trade trade = Trade.aTrade();
             supervisor.tell(new NewTradeMessage(trade), getTestActor());
-            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_CS_TRADES), getTestActor());
+            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_TRADES), getTestActor());
 
             final TradesResponseMessage response = expectMsgClass(TradesResponseMessage.class);
 
@@ -105,7 +105,7 @@ public class TradesTest {
             supervisor.tell(new NewTradeMessage(trade1), getTestActor());
             supervisor.tell(new NewTradeMessage(trade2), getTestActor());
             supervisor.tell(new CancelTradeMessage(trade1), getTestActor());
-            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_CS_TRADES), getTestActor());
+            supervisor.tell(new TradesRequest(UUID.randomUUID().toString(), RequestType.GET_TRADES), getTestActor());
 
             final TradesResponseMessage response = expectMsgClass(TradesResponseMessage.class);
 
